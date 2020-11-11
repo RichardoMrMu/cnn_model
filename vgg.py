@@ -9,6 +9,16 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
+def preprocess(x,y):
+    # x = tf.expand_dims(x,axis=2)
+    x = tf.image.resize(x,[224,224])
+    x = tf.cast(x,dtype=tf.float32)/255.
+    print(f"y.shape:{y.shape}")
+    y = tf.cast(y,dtype=tf.int32)
+    y = tf.one_hot(y,depth=10)
+    y = tf.squeeze(y,axis=0)
+
+    return tf.expand_dims(x,axis=0),tf.expand_dims(y,axis=0)
 
 class VGG(tf.keras.Model):
     def __init__(self):
@@ -160,22 +170,44 @@ class VGGNet(tf.keras.Model):
         return tf.keras.Sequential(layers)
 
 
-    def call(self,input_x,training=None):
-        x = self.conv_net(input_x,training=training)
-        x = self.fc_net(x,training=training)
+    # def call(self,input_x,training=None):
+    #     x = self.conv_net(input_x,training=training)
+    #     x = self.fc_net(x,training=training)
+    #     return x
+    def call(self,input_x):
+        x = self.conv_net(input_x)
+        x = self.fc_net(x)
         return x
 
 
 def main():
+    lr=0.001
     tf.random.set_seed(1234)
-    input_x = tf.random.uniform([1,227,227,3])
+    (x,y),(x_val,y_val) = tf.keras.datasets.cifar10.load_data()
+
+    x1,y1 = x[0],y[0]
+    x2,y2 = x[1],y[1]
+    x3,y3 = x[2],y[2]
+    x1 ,y1 = preprocess(x1,y1)
+    x2 ,y2 = preprocess(x2,y2)
+    x3, y3 = preprocess(x3,y3)
+    print(x1.shape,y1.shape)
     model = VGGNet('A',10)
-    output = model(input_x,training=True)
-    output2 = model(input_x)
-    output1 = model(input_x,training=False)
-    print(output)
-    print(output2)
-    print(output1)
+
+    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr),
+                  loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                  metrics=['accuracy'])
+    model.fit(x=x1,y=y1,epochs=1)
+    model.evaluate(x=x2, y=y2)
+    model.fit(x=x2, y=y2, epochs=1)
+    model.save("model")
+    # output = model(input_x,training=True)
+    # output2 = model(input_x)
+    # output1 = model(input_x,training=False)
+    # print(output)
+    # print(output2)
+    # print(output1)
+    # model.evaluate(x=input_x,y=y)
     # print(output.shape)
     # for layer in model.layers:
     #     print(layer.summary())
