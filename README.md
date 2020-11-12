@@ -1,2 +1,9 @@
 # cnn_model
-cnn model recreation
+==========================
+复现cnn模型
+包括：
+* Alxenet
+* Inception
+* vgg
+* ResNet
+* SeNet等

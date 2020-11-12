@@ -7,7 +7,9 @@ import tensorflow as tf
 from resnet_block import _make_basic_block_layer,_make_bottleneck_layer
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
+
 class ResNetBlk1(tf.keras.Model):
     def __init__(self,layers_param,num_class):
         super(ResNetBlk1, self).__init__()
@@ -58,7 +60,9 @@ class ResNetBlk2(tf.keras.Model):
         output = self.layer2(output, training=training)
         output = self.layer3(output, training=training)
         output = self.layer4(output, training=training)
+        print(output.shape)
         output = self.avg_pool(output)
+        print(output.shape)
         output = self.dense1(output)
         output = self.dense2(output)
         return output

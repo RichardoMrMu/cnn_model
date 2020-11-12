@@ -10,13 +10,14 @@ import os
 from vgg import VGGNet
 from googlenet import GoogleNet
 from resnet import resnet_50
+from senet import se_resnet_50
 os.environ['TF_CPP__MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus :
     tf.config.experimental.set_memory_growth(gpu,True)
 # image classification
-batchsz = 32
+batchsz = 128
 lr = 1e-2
 EPOCH = 20
 best_acc = 0.
@@ -24,8 +25,8 @@ tf.random.set_seed(1234)
 # model = AlexNet()
 # model = VGGNet('A',10)
 # model = GoogleNet()
-model = resnet_50()
-
+# model = resnet_50()
+model = se_resnet_50()
 def preprocess(x,y):
     # x = tf.expand_dims(x,axis=2)
     x = tf.image.resize(x,[224,224])

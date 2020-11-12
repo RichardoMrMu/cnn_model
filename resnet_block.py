@@ -6,6 +6,7 @@
 
 import tensorflow as tf
 
+
 class BaseBlocks(tf.keras.Model):
     def __init__(self,filter_num,strides=1):
         super(BaseBlocks, self).__init__()
