@@ -10,6 +10,20 @@
             </list>
           </settings>
         </remote-mappings>
+        <remote-mappings server-id="python@sftp://tbw@222.20.74.53:22/home/tbw/anaconda3/envs/gaze/bin/python">
+          <settings>
+            <list>
+              <mapping local-root="$PROJECT_DIR$" remote-root="/home/tbw/work/code/tensorflow_learning" />
+            </list>
+          </settings>
+        </remote-mappings>
+        <remote-mappings server-id="python@sftp://tbw@222.20.74.53:22/home/tbw/anaconda3/envs/tf-gpu/bin/python">
+          <settings>
+            <list>
+              <mapping local-root="$PROJECT_DIR$" remote-root="/home/tbw/work/code/tensorflow_learning" />
+            </list>
+          </settings>
+        </remote-mappings>
       </list>
     </list>
   </component>

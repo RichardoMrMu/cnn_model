@@ -1,25 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="tbw@222.20.76.234:22 (1)">
+  <component name="PublishConfigData" autoUpload="Always" serverName="tbw@222.20.74.53:22">
     <serverData>
-      <paths name="tbw">
+      <paths name="tbw@222.20.74.53:22">
         <serverdata>
           <mappings>
-            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/work/code/tensorflow_learning" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="tbw@222.20.76.234:22">
+      <paths name="tbw@222.20.74.53:22 (1)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="tbw@222.20.76.234:22 (1)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/tbw/work/code/tensorflow_learning" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

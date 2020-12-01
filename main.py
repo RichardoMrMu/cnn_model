@@ -11,7 +11,7 @@ from vgg import VGGNet
 from googlenet import GoogleNet
 from resnet import resnet_50
 from senet import se_resnet_50
-os.environ['TF_CPP__MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus :
