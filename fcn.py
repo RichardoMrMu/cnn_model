@@ -55,14 +55,23 @@ class FCN32s(tf.keras.Model):
     def call(self,input,training=None):
         output = self.pretrained_net(input)
         x5 = output['x5']
-        score = self.deconv_bn_1(x5)  # size=(N, x.H/16, x.W/16, 512)
-        score = self.deconv_bn_2(score)  # size=(N, x.H/8, x.W/8, 256)
-        score = self.deconv_bn_3(score)  # size=(N, x.H/4, x.W/4, 128)
-        score = self.deconv_bn_4(score)  # size=(N, x.H/2, x.W/2, 64)
-        score = self.deconv_bn_5(score)  # size=(N, x.H, x.W, 32)
-        score = self.classifier(score)   # size=(N, x.H/1, x.W/1, n_class)
+        score = self.deconv_bn_1(x5,training=training)  # size=(N, x.H/16, x.W/16, 512)
+        score = self.deconv_bn_2(score,training=training)  # size=(N, x.H/8, x.W/8, 256)
+        score = self.deconv_bn_3(score,training=training)  # size=(N, x.H/4, x.W/4, 128)
+        score = self.deconv_bn_4(score,training=training)  # size=(N, x.H/2, x.W/2, 64)
+        score = self.deconv_bn_5(score,training=training)  # size=(N, x.H, x.W, 32)
+        score = self.classifier(score,training=training)   # size=(N, x.H/1, x.W/1, n_class)
         return score # size=(N, x.H/1, x.W/1, n_class)
 
+def get_fcn32():
+    base_model = tf.keras.applications.MobileNetV2(include_top=False,weights='imagenet')
+    for index , layer in enumerate(base_model.layers):
+        print(index,layer.name)
+    inputs = tf.keras.layers.Input(shape=[128, 128, 3])
+    x = inputs
+    fcn32 = FCN32s(base_model,3)
+    y = fcn32(x)
+    return tf.keras.Model(inputs=inputs, outputs=y)
 
 def main():
     vgg = tf.keras.applications.vgg19.VGG19(include_top=False,weights='imagenet')

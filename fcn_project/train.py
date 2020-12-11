@@ -1,106 +1,123 @@
-# -*- coding: utf-8 -*-
-# @Time    : 2020-12-01 19:22
-# @Author  : RichardoMu
-# @File    : train.py
-# @Software: PyCharm
-
-
-import os, sys, cv2, glob, argparse
-
-import numpy as np
-import random as rd
 
 import tensorflow as tf
-import tensorflow.keras as k
-
-import matplotlib.cm as cm
+import tensorflow_datasets as tfds
+tfds.disable_progress_bar()
+from IPython.display import clear_output
 import matplotlib.pyplot as plt
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu,True)
+from fcn_project.net import fcn
+from fcn_project.net import UNET
+# 下载Oxford-IIIT Pets数据集
+OUTPUT_CHANNEL = 3
+dataset ,info = tfds.load('oxford_iiit_pet:3.*.*',with_info=True)
 
-from net import *
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import Model
-from tensorflow.keras.applications import VGG19 as vgg19
-from tensorflow.keras.applications.vgg19 import preprocess_input
+def normalize(input_image,input_mask):
+    input_image = tf.cast(input_image, tf.float32) / 255.0
+    input_mask -= 1
+    return input_image, input_mask
+@tf.function
+def load_image_train(datapoint):
+    input_image = tf.image.resize(datapoint['image'], (128, 128))
+    input_mask = tf.image.resize(datapoint['segmentation_mask'], (128, 128))
 
-gpu = tf.config.experimental.list_physical_devices('GPU')[0]
-tf.config.experimental.set_memory_growth(gpu, True)
+    if tf.random.uniform(()) > 0.5:
+        input_image = tf.image.flip_left_right(input_image)
+        input_mask = tf.image.flip_left_right(input_mask)
 
-parser = argparse.ArgumentParser(
-    usage="""train.py --train_dir TrainDirectory --train_gt_dir TrainGroundTruthDirectory --test.py TestDirectory --test_gt_dir TestGroundTruthDirectory [Option]""")
-parser.add_argument("--train_dir", help="Train directory Location")
-parser.add_argument("--train_gt_dir", help="Train ground truth Location")
-parser.add_argument("--batch_size", nargs="?", default=8, help="Number of batch_size")
-parser.add_argument("--label", default="../Data/VOC2012/labels.txt", help="location of labels")
-parser.add_argument("--epoch", nargs="?", default=20, help="Number of Training epochs")
-parser.add_argument("--lr", nargs="?", default=1e-4, help="Number of learning rate")
-parser.add_argument("--lr_decay", nargs="?", default=5e-5, help="Number of learning rate decay")
-parser.add_argument("--rate", nargs="?", default=0.5, help="Number of drop out rate")
-parser.add_argument("--save_dir", nargs="?", default="./model/", help="Location of saved model directory")
+    input_image, input_mask = normalize(input_image, input_mask)
 
-args = parser.parse_args()
-
-train_path = args.train_dir
-train_gt_path = args.train_gt_dir
-save_path = args.save_dir
-label_path = args.label
-rate = float(args.rate)
-lr = float(args.lr)
-lr_decay = float(args.lr_decay)
-epochs = int(args.epoch)
-batch_size = int(args.batch_size)
-
-if not os.path.exists(save_path): os.mkdir(save_path)
-if not os.path.exists(os.path.join(".", "result")): os.mkdir(os.path.join(".", "result"))
-if not os.path.exists(os.path.join(".", "result_img")): os.mkdir(os.path.join(".", "result_img"))
-if not os.path.exists(os.path.join(".", "result_img", "val")): os.mkdir(os.path.join(".", "result_img", "val"))
-if not os.path.exists(train_path): raise TypeError("Please input right Train Data Path")
-if not os.path.exists(train_gt_path): raise TypeError("Please input right Train Ground Truth Data Path")
+    return input_image, input_mask
 
 
-def train_step(features, gt):
-    with tf.GradientTape() as tape:
-        pred = model(features, training=True)
-        loss = tf.keras.losses.categorical_crossentropy(gt, pred, from_logits=True)
+def load_image_test(datapoint):
+    input_image = tf.image.resize(datapoint['image'], (128, 128))
+    input_mask = tf.image.resize(datapoint['segmentation_mask'], (128, 128))
 
-    grad = tape.gradient(loss, model.trainable_weights)
-    optimizer.apply_gradients(zip(grad, model.trainable_weights))
-    print("에포크 : ", epoch, " 스텝 : ", step, ", Loss : ", float(tf.reduce_mean(loss)))
+    input_image, input_mask = normalize(input_image, input_mask)
+
+    return input_image, input_mask
+
+TRAIN_LENGTH = info.splits['train'].num_examples
+BATCH_SIZE = 64
+BUFFER_SIZE = 1000
+STEPS_PER_EPOCH = TRAIN_LENGTH # BATCH_SIZE
+
+train = dataset['train'].map(load_image_train, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+test = dataset['test'].map(load_image_test)
+train_dataset = train.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
+train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+test_dataset = test.batch(BATCH_SIZE)
+def display(display_list):
+    plt.figure(figsize=(15, 15))
+
+    title = ['Input Image', 'True Mask', 'Predicted Mask']
+
+    for i in range(len(display_list)):
+        plt.subplot(1, len(display_list), i+1)
+        plt.title(title[i])
+        plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]))
+        plt.axis('off')
+    plt.show()
+
+for image, mask in train.take(1):
+    sample_image, sample_mask = image, mask
+display([sample_image, sample_mask])
+
+# unet = UNET.unet_model(OUTPUT_CHANNEL)
+unet = fcn.get_fcn32()
+
+unet.compile(optimizer='adam',loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+             metrics=['accuracy'])
+tf.keras.utils.plot_model(unet,show_shapes=True)
+def create_mask(pred_mask):
+    pred_mask = tf.argmax(pred_mask, axis=-1)
+    pred_mask = pred_mask[..., tf.newaxis]
+    return pred_mask[0]
+
+def show_predictions(dataset=None, num=1):
+    if dataset:
+        for image, mask in dataset.take(num):
+            pred_mask = unet.predict(image)
+            display([image[0], mask[0], create_mask(pred_mask)])
+    else:
+        display([sample_image, sample_mask,
+             create_mask(unet.predict(sample_image[tf.newaxis, ...]))])
+
+show_predictions()
+
+class DisplayCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self,epoch,logs=None):
+        clear_output(wait=True)
+        show_predictions()
+        print('\nSample Prediction after epoch {}\n'.format(epoch+1))
 
 
-trlist, t_size, val_size = load_path_list(train_path, train_gt_path, batch_size)
-trlist, valist = (trlist[:t_size], trlist[t_size: t_size + val_size])
+EPOCHS = 20
+val_subsplits = 5
+validation_steps = info.splits['test'].num_examples//BATCH_SIZE//val_subsplits
+model_history = unet.fit(train_dataset, epochs=EPOCHS,
+                          steps_per_epoch=STEPS_PER_EPOCH,
+                          validation_steps=validation_steps,
+                          validation_data=test_dataset,
+                          callbacks=[DisplayCallback()])
+loss = model_history.history['loss']
+val_loss = model_history.history['val_loss']
 
-labels, index = load_labels(label_path)
-val_bathces = batch(train_path, train_gt_path, valist, batch_size, index)
-val_img, val_gt = next(val_bathces)
-n_class = len(labels)
+epochs = range(EPOCHS)
 
-FCN_Layer = ['block3_pool', 'block4_pool', 'block5_pool']
+plt.figure()
+plt.plot(epochs, loss, 'r', label='Training loss')
+plt.plot(epochs, val_loss, 'bo', label='Validation loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss Value')
+plt.ylim([0, 1])
+plt.legend()
+plt.show()
 
-encoder = pre_vgg(FCN_Layer)
-model = FCN(n_class, rate)
-lr_schedule = k.optimizers.schedules.ExponentialDecay(lr, decay_steps=1, decay_rate=lr_decay, staircase=False)
-optimizer = tf.optimizers.Adam(learning_rate=lr_schedule)
-
-for epoch in range(epochs):
-
-    rd.shuffle(trlist)
-    batches = batch(train_path, train_gt_path, trlist, batch_size, index)
-
-    for step, now in enumerate(batches):
-
-        train_img, gt_img = now
-
-        gt_img = k.utils.to_categorical(gt_img, n_class)
-        features = encoder(train_img)
-
-        train_step(features, gt_img)
-
-        if step % 100 == 0:
-            val_features = encoder(val_img)
-            val_pred = model(val_features, training=False)
-            val_pred = tf.math.argmax(val_pred, axis=3)
-
-            for i, image in enumerate(val_pred):
-                file_name = str(epoch) + " epoch_" + str(step) + " step_" + str(i) + ".jpg"
-                plt.imsave(os.path.join(".", "result_img", "val", file_name), image, cmap=cm.Paired)
+show_predictions(test_dataset, 3)
